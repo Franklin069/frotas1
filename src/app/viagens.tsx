@@ -1,20 +1,13 @@
-import {StyleSheet, Text, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React from 'react';
+import { View, Text } from 'react-native';
 
-export default function Index() {
+const ViagensScreen = () => {
   return (
-    <SafeAreaView style={styles.container}>
-      <Text>Pagina Inicial</Text>
-      <StatusBar style="dark" />
-    </SafeAreaView>
+    <View>
+      <Text>Página de Viagens</Text>
+      {/* O conteúdo da página de viagens virá aqui */}
+    </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-})
+export default ViagensScreen;
