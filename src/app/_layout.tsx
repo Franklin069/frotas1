@@ -21,6 +21,15 @@ function LayoutWithBottomBar() {
       <View style={styles.app}>
         <Drawer
           screenOptions={{
+            headerStyle: {
+              backgroundColor: "#28a745", // VERDE
+            },
+            headerTintColor: "#fff", // texto e ícones padrão
+            headerTitleStyle: {
+              fontWeight: "bold",
+            },
+            headerShadowVisible: false,
+
             headerRight: () => (
               <Pressable
                 onPress={() => router.push("/perfil")}
@@ -29,7 +38,7 @@ function LayoutWithBottomBar() {
                 <Ionicons
                   name="person-circle-outline"
                   size={30}
-                  color="#000"
+                  color="#fff"
                 />
               </Pressable>
             ),

@@ -58,9 +58,10 @@ export default function Perfil() {
         </Pressable>
       </View>
 
-      <Text style={styles.footerText}>
+      {/*<Text style={styles.footerText}>
         Você pode <Text style={styles.linkText}>cancelar sua conta</Text> quando quiser.
-      </Text>
+      </Text>*/}
+      
     </View>
   );
 }
