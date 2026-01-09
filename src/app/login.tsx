@@ -38,8 +38,9 @@ export default function LoginScreen({ navigation }: any) {
         {/* Cabeçalho Guarnicê */}
         <View style={styles.header}>
           <Image 
-            source={{ uri: 'https://img.icons8.com/color/96/truck.png' }} 
+            source={require('../../assets/images/Logo.oficial.png')} // Verifique se o caminho está correto
             style={styles.logo}
+            resizeMode="contain" // Isso garante que a logo não seja cortada
           />
           <Text style={styles.brandName}>GUARNICÊ</Text>
           <Text style={styles.brandSub}>FROTAS</Text>

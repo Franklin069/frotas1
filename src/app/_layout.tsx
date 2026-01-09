@@ -12,11 +12,13 @@ import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawe
 
 SplashScreen.preventAutoHideAsync();
 
+
+
 function CustomDrawerContent(props: any) {
   return (
     <DrawerContentScrollView {...props}>
       <View style={styles.drawerHeader}>
-        <Text style={styles.drawerTitle}>Frota</Text>
+        <Text style={styles.drawerTitle}>FROTAS</Text>
       </View>
       <DrawerItemList {...props} />
     </DrawerContentScrollView>
@@ -127,6 +129,9 @@ export default function RootLayout() {
     const hideSplash = async () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await SplashScreen.hideAsync();
+      
+      // FORÇA IR PARA O LOGIN AO ABRIR O APP
+      router.replace("/login"); 
     };
     hideSplash();
   }, []);
