@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 export default function Perfil() {
   return (
     <View style={styles.container}>
-      {/* CONFIGURAÇÃO DO HEADER PARA VOLTAR ESPECIFICAMENTE PARA HOME */}
       <Stack.Screen 
         options={{
           headerTitle: "Meu Perfil",
@@ -13,20 +12,19 @@ export default function Perfil() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable 
-              onPress={() => router.push("/home")} // Força a ida para a home
+              onPress={() => router.replace("/(tabs)/home")} 
               style={({ pressed }) => ({
                 marginLeft: 0,
                 marginRight: 15,
                 opacity: pressed ? 0.5 : 1 
               })}
             >
-              <Ionicons name="arrow-back" size={24} color="black" />
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
             </Pressable>
           ),
         }} 
       />
 
-      {/* CABEÇALHO AMARELO CENTRALIZADO */}
       <View style={styles.header}>
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarText}>FA</Text>
@@ -36,7 +34,6 @@ export default function Perfil() {
         <Text style={styles.userEmail}>dellano.08@hotmail.com</Text>
       </View>
 
-      {/* LISTA DE OPÇÕES */}
       <View style={styles.menuContainer}>
         <Pressable style={styles.item}>
           <View style={styles.itemLeft}>
@@ -57,11 +54,6 @@ export default function Perfil() {
           <Ionicons name="chevron-forward" size={20} color="#CCC" />
         </Pressable>
       </View>
-
-      {/*<Text style={styles.footerText}>
-        Você pode <Text style={styles.linkText}>cancelar sua conta</Text> quando quiser.
-      </Text>*/}
-      
     </View>
   );
 }
@@ -126,14 +118,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     marginLeft: 15,
-  },
-  footerText: {
-    textAlign: "center",
-    padding: 20,
-    color: "#999",
-    fontSize: 13,
-  },
-  linkText: {
-    color: "#3483fa",
   }
 });
