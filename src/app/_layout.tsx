@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, Text } from "react-native";
 import { Drawer } from "expo-router/drawer";
 import { router } from "expo-router";
 import {
@@ -8,43 +8,65 @@ import {
 } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
 import { Ionicons } from "@expo/vector-icons";
+import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
 
-// Impede que a Splash Screen suma automaticamente
 SplashScreen.preventAutoHideAsync();
+
+function CustomDrawerContent(props: any) {
+  return (
+    <DrawerContentScrollView {...props}>
+      <View style={styles.drawerHeader}>
+        <Text style={styles.drawerTitle}>Frota</Text>
+      </View>
+      <DrawerItemList {...props} />
+    </DrawerContentScrollView>
+  );
+}
 
 function LayoutWithBottomBar() {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.root}>
-      {/* APP */}
       <View style={styles.app}>
         <Drawer
+          drawerContent={(props) => <CustomDrawerContent {...props} />}
           screenOptions={{
-            headerStyle: {
-              backgroundColor: "#28a745", // VERDE
-            },
-            headerTintColor: "#fff", // texto e ícones padrão
-            headerTitleStyle: {
-              fontWeight: "bold",
-            },
+            headerStyle: { backgroundColor: "#28a745" },
+            headerTintColor: "#fff",
+            headerTitleStyle: { fontWeight: "bold" },
             headerShadowVisible: false,
-
+            drawerActiveTintColor: "#28a745", 
+            drawerInactiveTintColor: "#333",
             headerRight: () => (
               <Pressable
                 onPress={() => router.push("/perfil")}
                 style={{ marginRight: 16 }}
               >
-                <Ionicons
-                  name="person-circle-outline"
-                  size={30}
-                  color="#fff"
-                />
+                <Ionicons name="person-circle-outline" size={30} color="#fff" />
               </Pressable>
             ),
           }}
         >
-          {/* Tela de Login (oculta) */}
+          {/* 1. HOME NO TOPO */}
+          <Drawer.Screen 
+            name="home" 
+            options={{ 
+              title: "Home",
+              drawerIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />
+            }} 
+          />
+
+          {/* 2. DASHBOARD ABAIXO DA HOME */}
+          <Drawer.Screen 
+            name="dashboard" 
+            options={{ 
+              title: "Dashboard",
+              drawerIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} />
+            }} 
+          />
+
+          {/* TELAS OCULTAS DO MENU (CONFIGURAÇÃO TÉCNICA) */}
           <Drawer.Screen
             name="login"
             options={{
@@ -54,14 +76,37 @@ function LayoutWithBottomBar() {
             }}
           />
 
-          {/* Telas do menu */}
-          <Drawer.Screen name="index" options={{ title: "Início" }} />
-          <Drawer.Screen name="dashboard" options={{ title: "Dashboard" }} />
-          <Drawer.Screen name="solicitacoes" options={{ title: "Solicitações" }} />
-          <Drawer.Screen name="autorizacoes" options={{ title: "Autorizações" }} />
-          <Drawer.Screen name="viagens" options={{ title: "Viagens" }} />
+          {/* OCULTANDO O 'INDEX' PARA EVITAR O ERRO DE VOLTAR AO LOGIN */}
+          <Drawer.Screen 
+            name="index" 
+            options={{ 
+              drawerItemStyle: { display: "none" },
+            }} 
+          />
 
-          {/* Tela Perfil (não aparece no Drawer) */}
+          {/* TELAS DE OPERAÇÃO VISÍVEIS */}
+          <Drawer.Screen 
+            name="solicitacoes" 
+            options={{ 
+              title: "Solicitações",
+              drawerIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />
+            }} 
+          />
+          <Drawer.Screen 
+            name="autorizacoes" 
+            options={{ 
+              title: "Autorizações",
+              drawerIcon: ({ color, size }) => <Ionicons name="checkmark-circle-outline" size={size} color={color} />
+            }} 
+          />
+          <Drawer.Screen 
+            name="viagens" 
+            options={{ 
+              title: "Viagens",
+              drawerIcon: ({ color, size }) => <Ionicons name="car-outline" size={size} color={color} />
+            }} 
+          />
+
           <Drawer.Screen
             name="perfil"
             options={{
@@ -72,13 +117,7 @@ function LayoutWithBottomBar() {
         </Drawer>
       </View>
 
-      {/* BARRA PRETA INFERIOR (barra do sistema Android) */}
-      <View
-        style={[
-          styles.bottomBar,
-          { height: insets.bottom + 12 },
-        ]}
-      />
+      <View style={[styles.bottomBar, { height: insets.bottom + 12 }]} />
     </View>
   );
 }
@@ -89,7 +128,6 @@ export default function RootLayout() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await SplashScreen.hideAsync();
     };
-
     hideSplash();
   }, []);
 
@@ -101,15 +139,19 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#000",
+  root: { flex: 1, backgroundColor: "#000" },
+  app: { flex: 1, backgroundColor: "#f8f9fa" },
+  bottomBar: { backgroundColor: "#000" },
+  drawerHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    marginBottom: 10,
+    marginTop: 10,
   },
-  app: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  bottomBar: {
-    backgroundColor: "#000",
+  drawerTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#28a745", 
   },
 });
