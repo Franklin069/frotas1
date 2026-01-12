@@ -1,78 +1,180 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+// CORREÇÃO 1: Subindo os níveis corretos para achar a pasta components
+import SolicitacaoModal from '../../components/SolicitacaoModal'; 
+import { 
+  StyleSheet, View, Text, FlatList, TouchableOpacity, 
+  ActivityIndicator, Alert, TextInput 
+} from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { buscarDados, enviarDados } from '../../services/server';
 
 export default function SolicitacoesScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Título (Equivalente ao <h1>) */}
-        <Text style={styles.title}>Lista de Solicitações</Text>
-        
-        {/* Card de Conteúdo (Estilo Bootstrap Card) */}
-        <View style={styles.card}>
-          <Text style={styles.paragraph}>
-            Conteúdo para a lista de solicitações virá aqui.
-          </Text>
-        </View>
+  const API_ENDPOINT = '/api/solicitacoes';
 
-        {/* Exemplo de como você pode listar itens futuramente */}
-        <View style={styles.placeholderItem}>
-          <Text style={styles.itemText}>Exemplo de Solicitação #001</Text>
-          <Text style={styles.itemStatus}>Pendente</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalVisivel, setModalVisivel] = useState(false); 
+  
+  const [filtroSolicitante, setFiltroSolicitante] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('Todos');
+
+  const getSolicitacoes = async () => {
+    try {
+      setLoading(true);
+      const data = await buscarDados(API_ENDPOINT);
+      setSolicitacoes(data || []);
+    } catch (err: any) {
+      Alert.alert('Erro', 'Não foi possível carregar as solicitações.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getSolicitacoes();
+  }, []);
+
+  const handleEnviarParaAutorizacao = (sol: any) => {
+    Alert.alert(
+      "Confirmar Envio",
+      `Confirma o envio da solicitação do servidor ${sol.servidor?.pessoa?.nome}?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Confirmar", 
+          onPress: async () => {
+            try {
+              await enviarDados(`${API_ENDPOINT}/${sol.id}/enviar-transporte`, 'POST');
+              Alert.alert("Sucesso", "Solicitação enviada para o Setor de Transporte!");
+              getSolicitacoes();
+            } catch (error) {
+              Alert.alert("Erro", "Falha ao enviar para o transporte.");
+            }
+          } 
+        }
+      ]
+    );
+  };
+
+  const renderStatus = (status: string) => {
+    const colors: any = {
+      'CRIADA': { bg: '#d1ecf1', text: '#0c5460' },
+      'PENDENTE': { bg: '#fff3cd', text: '#856404' },
+      'APROVADA': { bg: '#d4edda', text: '#155724' },
+      'NEGADA': { bg: '#f8d7da', text: '#721c24' },
+    };
+    const style = colors[status] || { bg: '#eee', text: '#333' };
+    return (
+      <View style={[styles.statusPill, { backgroundColor: style.bg }]}>
+        <Text style={[styles.statusText, { color: style.text }]}>{status}</Text>
+      </View>
+    );
+  };
+
+  const solicitacoesFiltradas = solicitacoes.filter(sol => {
+    const nome = sol.servidor?.pessoa?.nome?.toLowerCase() || "";
+    const nomeMatch = nome.includes(filtroSolicitante.toLowerCase());
+    const statusMatch = filtroStatus === 'Todos' || sol.status === filtroStatus;
+    return nomeMatch && statusMatch;
+  });
+
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.solicitanteNome}>{item.servidor?.pessoa?.nome}</Text>
+        {renderStatus(item.status)}
+      </View>
+      
+      <View style={styles.cardBody}>
+        <Text style={styles.infoText}><Text style={styles.bold}>Origem:</Text> {item.origem}</Text>
+        <Text style={styles.infoText}><Text style={styles.bold}>Destino:</Text> {item.destino}</Text>
+        <Text style={styles.infoText}><Text style={styles.bold}>Data:</Text> {item.dataCriacao}</Text>
+      </View>
+
+      <View style={styles.acoesContainer}>
+        <TouchableOpacity style={styles.btnAcao} onPress={() => Alert.alert("Visualizar", "Detalhes...")}>
+          <FontAwesome5 name="eye" size={18} color="#007bff" />
+        </TouchableOpacity>
+
+        {item.status === 'CRIADA' && (
+          <>
+            <TouchableOpacity style={styles.btnAcao}>
+              <FontAwesome5 name="edit" size={18} color="#ffc107" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnAcao} onPress={() => handleEnviarParaAutorizacao(item)}>
+              <FontAwesome5 name="paper-plane" size={18} color="#28a745" />
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Solicitações</Text>
+        <TouchableOpacity 
+          style={styles.btnNovo} 
+          onPress={() => setModalVisivel(true)} 
+        >
+          <FontAwesome5 name="plus" size={16} color="#FFF" />
+          <Text style={styles.btnNovoText}> Nova</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchArea}>
+        <TextInput 
+          style={styles.input}
+          placeholder="Pesquisar solicitante..."
+          value={filtroSolicitante}
+          onChangeText={setFiltroSolicitante}
+        />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#10b981" style={{ marginTop: 20 }} />
+      ) : (
+        <FlatList
+          data={solicitacoesFiltradas}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma solicitação encontrada.</Text>}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
+      )}
+
+      {/* CORREÇÃO 2: Removidas as chaves extras {{ }} que impediam o funcionamento */}
+      {modalVisivel && (
+        <SolicitacaoModal 
+          onClose={() => setModalVisivel(false)} 
+          onSuccess={() => {
+            setModalVisivel(false);
+            getSolicitacoes(); 
+          }} 
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa', // Cor de fundo bg-light do Bootstrap
-  },
-  content: {
-    padding: 20, // Equivalente ao container mt-4
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#212529',
-    marginBottom: 10,
-  },
-  paragraph: {
-    fontSize: 16,
-    color: '#6c757d',
-    lineHeight: 24,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, // Sombra no Android
-    marginBottom: 20,
-  },
-  placeholderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderLeftWidth: 5,
-    borderLeftColor: '#0061F2', // Azul da Guarnicê
-    marginBottom: 10,
-  },
-  itemText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  itemStatus: {
-    fontSize: 14,
-    color: '#0061F2',
-    fontWeight: 'bold',
-  }
+  container: { flex: 1, backgroundColor: '#f9fafb', padding: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  btnNovo: { backgroundColor: '#10b981', flexDirection: 'row', padding: 10, borderRadius: 8, alignItems: 'center' },
+  btnNovoText: { color: '#FFF', fontWeight: 'bold' },
+  searchArea: { backgroundColor: '#FFF', padding: 10, borderRadius: 10, marginBottom: 15, elevation: 2 },
+  input: { height: 40, borderColor: '#ddd', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10 },
+  card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 12, elevation: 3 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  solicitanteNome: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  cardBody: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
+  infoText: { fontSize: 14, color: '#666', marginBottom: 4 },
+  bold: { fontWeight: 'bold', color: '#444' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText: { fontSize: 11, fontWeight: 'bold' },
+  acoesContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
+  btnAcao: { marginLeft: 20 },
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#999' }
 });

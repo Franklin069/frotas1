@@ -1,43 +1,105 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
   SafeAreaView, 
-  StatusBar 
+  StatusBar,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert 
 } from 'react-native';
+// Importando as funções do seu arquivo 'serve.js'
+import { buscarDados, enviarDados } from '../../services/server'; 
 
-export default function ManutencoesScreen() {
+export default function AutorizacoesScreen() {
+  // O segredo está aqui: o nome é setSolicitacoes
+  const [solicitacoes, setSolicitacoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const carregarSolicitacoes = async () => {
+    try {
+      setLoading(true);
+      const dados = await buscarDados('/api/solicitacoes');
+      
+      // Filtramos apenas as solicitações com status PENDENTE
+      const pendentes = dados.filter((s: any) => s.status === 'PENDENTE');
+      
+      // CORREÇÃO AQUI: Agora o nome bate com o useState acima
+      setSolicitacoes(pendentes); 
+    } catch (error) {
+      console.error("Erro ao buscar solicitações:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarSolicitacoes();
+  }, []);
+
+  const processarAutorizacao = async (id: number, novoStatus: 'APROVADA' | 'NEGADA') => {
+    try {
+      // Chama o endpoint PATCH do seu Java
+      await enviarDados(`/api/solicitacoes/${id}/status`, 'PATCH', { status: novoStatus });
+      
+      Alert.alert('Sucesso', `Solicitação ${novoStatus.toLowerCase()} com sucesso!`);
+      carregarSolicitacoes(); // Recarrega a lista para remover o item processado
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível processar a autorização.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0061F2" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Ajusta a barra de status para combinar com o fundo claro */}
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Cabeçalho da Página (Equivalente ao <h1>) */}
         <View style={styles.header}>
-          <Text style={styles.title}>Lista de Manutenções</Text>
-          <Text style={styles.subtitle}>Aqui serão listadas as manutenções do sistema.</Text>
+          <Text style={styles.title}>Autorizações</Text>
+          <Text style={styles.subtitle}>Gerencie os pedidos de veículos pendentes.</Text>
         </View>
 
-        {/* Card Informativo (Estilo Bootstrap Card) */}
-        <View style={styles.card}>
-          <Text style={styles.cardContent}>
-            Nenhuma manutenção registrada no momento.
-          </Text>
-        </View>
+        {solicitacoes.length === 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardContent}>Nenhuma solicitação aguardando autorização.</Text>
+          </View>
+        ) : (
+          solicitacoes.map((item: any) => (
+            <View key={item.id} style={styles.maintenanceItem}>
+              <View style={styles.maintenanceInfo}>
+                <Text style={styles.vehicleName}>{item.destino}</Text>
+                <Text style={styles.dateText}>Solicitante: {item.servidor?.pessoa?.nome}</Text>
+                <Text style={styles.dateText}>Data: {item.dataInicio}</Text>
+              </View>
 
-        {/* Exemplo de Card de Manutenção Individual */}
-        <View style={styles.maintenanceItem}>
-          <View style={styles.maintenanceInfo}>
-            <Text style={styles.vehicleName}>Caminhão Volvo FH 540</Text>
-            <Text style={styles.dateText}>Data: 28/12/2025</Text>
-          </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Preventiva</Text>
-          </View>
-        </View>
+              <View style={styles.actions}>
+                <TouchableOpacity 
+                  style={[styles.btnAction, { backgroundColor: '#28a745' }]} 
+                  onPress={() => processarAutorizacao(item.id, 'APROVADA')}
+                >
+                  <Text style={styles.btnText}>✓</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.btnAction, { backgroundColor: '#dc3545', marginLeft: 10 }]} 
+                  onPress={() => processarAutorizacao(item.id, 'NEGADA')}
+                >
+                  <Text style={styles.btnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -46,7 +108,12 @@ export default function ManutencoesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa', // Cor bg-light do Bootstrap
+    backgroundColor: '#f8f9fa',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
     padding: 20,
@@ -81,11 +148,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 15,
+    marginBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 3, // Sombra no Android
-    shadowColor: '#000', // Sombra no iOS
+    elevation: 3,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -103,15 +171,19 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 4,
   },
-  badge: {
-    backgroundColor: '#0061F2', // Azul padrão Guarnicê
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  actions: {
+    flexDirection: 'row',
+  },
+  btnAction: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  badgeText: {
+  btnText: {
     color: '#fff',
-    fontSize: 12,
     fontWeight: 'bold',
-  },
+    fontSize: 18,
+  }
 });

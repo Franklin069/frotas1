@@ -20,7 +20,7 @@ function LayoutWithBars() {
             headerTitleAlign: "center",
             headerTitle: () => (
               <Image 
-                source={require("../../assets/images/Logo.oficial.png")} 
+                source={require("../assets/images/Logo.oficial.png")} 
                 style={{ width: 120, height: 40 }} 
                 resizeMode="contain" 
               />
