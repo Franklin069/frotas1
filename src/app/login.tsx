@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { router } from "expo-router";
 import { 
   StyleSheet, 
   Text, 
@@ -7,168 +6,143 @@ import {
   TextInput, 
   TouchableOpacity, 
   Image, 
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  Alert
+  Alert, 
+  ActivityIndicator,
+  ScrollView 
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { FontAwesome5 } from '@expo/vector-icons'; // Ícones nativos do Expo
+import { enviarDados } from '../services/server';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function LoginScreen({ navigation }: any) {
-  const [login, setLogin] = useState('');
-  const [senha, setSenha] = useState('');
+export default function LoginScreen() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'entrar' | 'solicitar'>('entrar');
+  const [carregando, setCarregando] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    senha: '',
+    nome: '',
+    matricula: ''
+  });
 
-  const handleEntrar = () => {
-    // Esta linha abaixo define a regra de "quem pode entrar"
-    if (login === 'admin' && senha === '1234') { 
-        router.replace("/home");
-    } else {
-        Alert.alert('Erro', 'Usuário ou senha incorretos');
+  const handleLogin = async () => {
+    if (!formData.email || !formData.senha) {
+      Alert.alert('Erro', 'Preencha e-mail e senha.');
+      return;
     }
- };
+
+    try {
+      setCarregando(true);
+      const resposta = await enviarDados('/api/autenticacao/login', 'POST', {
+        email: formData.email,
+        senha: formData.senha
+      });
+
+      if (resposta && resposta.token) {
+        await AsyncStorage.setItem('@GuarniceFrota:token', resposta.token);
+        router.replace('/(tabs)/dashboard');
+      } else {
+        Alert.alert('Erro', 'Credenciais inválidas.');
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Falha na conexão com o servidor.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleSolicitar = () => {
+    Alert.alert("Sucesso", "Solicitação enviada! Aguarde aprovação.");
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        {/* Cabeçalho Guarnicê */}
-        <View style={styles.header}>
-          <Image 
-            source={{ uri: 'https://img.icons8.com/color/96/truck.png' }} 
-            style={styles.logo}
-          />
-          <Text style={styles.brandName}>GUARNICÊ</Text>
-          <Text style={styles.brandSub}>FROTAS</Text>
-          <Text style={styles.welcomeText}>Faça login para continuar</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.card}>
+        <Image source={require('../assets/images/Logo.oficial.png')} style={styles.logo} />
+        <Text style={styles.title}>Guarnicê Frotas</Text>
+        
+        {/* TAB CONTAINER */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tabBtn, activeTab === 'entrar' && styles.activeTab]}
+            onPress={() => setActiveTab('entrar')}
+          >
+            <Text style={[styles.tabText, activeTab === 'entrar' && styles.activeTabText]}>Entrar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabBtn, activeTab === 'solicitar' && styles.activeTab]}
+            onPress={() => setActiveTab('solicitar')}
+          >
+            <Text style={[styles.tabText, activeTab === 'solicitar' && styles.activeTabText]}>Solicitar</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Formulário - Ocupa a largura total com margens laterais */}
+        {/* FORMULÁRIO */}
         <View style={styles.form}>
-          <Text style={styles.label}>Email ou Login</Text>
+          {activeTab === 'solicitar' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Nome Completo"
+              onChangeText={(txt) => setFormData({...formData, nome: txt})}
+            />
+          )}
+
           <TextInput
             style={styles.input}
-            placeholder="admin"
-            value={login}
-            onChangeText={setLogin}
+            placeholder="Email"
+            keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#9CA3AF"
+            onChangeText={(txt) => setFormData({...formData, email: txt})}
           />
 
-          <Text style={styles.label}>Senha</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="........"
-            secureTextEntry
-            value={senha}
-            onChangeText={setSenha}
-            placeholderTextColor="#9CA3AF"
-          />
+          {activeTab === 'solicitar' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Matrícula"
+              onChangeText={(txt) => setFormData({...formData, matricula: txt})}
+            />
+          )}
 
-          {/* Botão Entrar com a Navegação */}
+          {activeTab === 'entrar' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Senha"
+              secureTextEntry
+              onChangeText={(txt) => setFormData({...formData, senha: txt})}
+            />
+          )}
+
           <TouchableOpacity 
             style={styles.button} 
-            onPress={handleEntrar}
+            onPress={activeTab === 'entrar' ? handleLogin : handleSolicitar}
+            disabled={carregando}
           >
-            <Text style={styles.buttonText}>Entrar</Text>
+            {carregando ? <ActivityIndicator color="#FFF" /> : (
+              <Text style={styles.buttonText}>
+                {activeTab === 'entrar' ? 'Acessar Sistema' : 'Enviar Solicitação'}
+              </Text>
+            )}
           </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Esqueceu sua senha? Entre em contato com o administrador.
-            </Text>
-          </View>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 50,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 10,
-  },
-  brandName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A3A34',
-    letterSpacing: 2,
-  },
-  brandSub: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A3A34',
-    marginTop: -5,
-  },
-  welcomeText: {
-    marginTop: 20,
-    color: '#6B7280',
-    fontSize: 16,
-  },
-  form: {
-    width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  input: {
-    backgroundColor: '#EBF2FF',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 16,
-    marginBottom: 20,
-    color: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#D1E3FF',
-  },
-  button: {
-    backgroundColor: '#0061F2',
-    borderRadius: 12,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginTop: 10,
-    elevation: 4,
-    shadowColor: '#0061F2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  footer: {
-    marginTop: 40,
-    alignItems: 'center',
-  },
-  footerText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-}); 
+  container: { flexGrow: 1, backgroundColor: '#f0f2f5', justifyContent: 'center', padding: 20 },
+  card: { backgroundColor: '#FFF', borderRadius: 15, padding: 20, elevation: 5 },
+  logo: { width: 100, height: 100, alignSelf: 'center', marginBottom: 10, resizeMode: 'contain' },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', color: '#333', marginBottom: 20 },
+  tabContainer: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#eee', borderRadius: 10, padding: 5 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  activeTab: { backgroundColor: '#0061F2' },
+  tabText: { color: '#666', fontWeight: 'bold' },
+  activeTabText: { color: '#FFF' },
+  form: { marginTop: 10 },
+  input: { height: 50, backgroundColor: '#f9f9f9', borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
+  button: { height: 50, backgroundColor: '#0061F2', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  buttonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+});
