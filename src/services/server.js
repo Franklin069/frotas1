@@ -10,7 +10,6 @@ const obterUrlApi = (endpoint) => {
 
 // Função auxiliar para injetar o token (Ajustada para Mobile)
 const obterCabecalhos = async () => {
-    // No celular usamos AsyncStorage com await
     const token = await AsyncStorage.getItem('@GuarniceFrota:token');
     const cabecalhos = {
         'Content-Type': 'application/json',
@@ -26,14 +25,19 @@ const obterCabecalhos = async () => {
 // Função para buscar dados (GET)
 export const buscarDados = async (endpoint) => {
     try {
-        const headers = await obterCabecalhos(); // Aguarda os headers
-        const resposta = await fetch(obterUrlApi(endpoint), {
+        const headers = await obterCabecalhos();
+        const url = obterUrlApi(endpoint);
+
+        const resposta = await fetch(url, {
             method: 'GET',
             headers: headers
         });
 
+        // --- LOG DE DEPURAÇÃO ADICIONADO ---
+        console.log(`[API GET] Rota: ${endpoint} | Status: ${resposta.status}`);
+
         if (resposta.status === 401 || resposta.status === 403) {
-            // No Mobile usamos o router do Expo para redirecionar
+            console.warn(`⚠️ Redirecionando: Usuário sem permissão ou Token expirado na rota ${endpoint}`);
             router.replace('/login');
             return;
         }
@@ -43,7 +47,7 @@ export const buscarDados = async (endpoint) => {
         }
         return await resposta.json();
     } catch (erro) {
-        console.error(`Não foi possível buscar dados de ${endpoint}:`, erro);
+        console.error(`❌ Erro na busca de ${endpoint}:`, erro);
         throw erro;
     }
 };
@@ -52,14 +56,19 @@ export const buscarDados = async (endpoint) => {
 export const enviarDados = async (endpoint, metodo = 'POST', dados) => {
     try {
         const url = obterUrlApi(endpoint);
-        const headers = await obterCabecalhos(); // Aguarda os headers
+        const headers = await obterCabecalhos();
+        
         const resposta = await fetch(url, {
             method: metodo,
             headers: headers,
             body: dados ? JSON.stringify(dados) : null,
         });
 
+        // --- LOG DE DEPURAÇÃO ADICIONADO ---
+        console.log(`[API ${metodo}] Rota: ${endpoint} | Status: ${resposta.status}`);
+
         if (resposta.status === 401 || resposta.status === 403) {
+            console.warn(`⚠️ Redirecionando: Falha de autenticação/autorização no envio para ${endpoint}`);
             router.replace('/login');
             return;
         }
@@ -77,7 +86,7 @@ export const enviarDados = async (endpoint, metodo = 'POST', dados) => {
         }
 
     } catch (erro) {
-        console.error(`Não foi possível enviar dados para ${endpoint}:`, erro);
+        console.error(`❌ Erro no envio para ${endpoint}:`, erro);
         throw erro;
     }
 };

@@ -1,189 +1,282 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
-  SafeAreaView, 
-  StatusBar,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert 
+import React, { useState, useEffect } from 'react';
+import {
+    StyleSheet,
+    View,
+    Text,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
-// Importando as funções do seu arquivo 'serve.js'
-import { buscarDados, enviarDados } from '../../services/server'; 
+import { buscarDados, enviarDados } from '../../services/server';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function AutorizacoesScreen() {
-  // O segredo está aqui: o nome é setSolicitacoes
-  const [solicitacoes, setSolicitacoes] = useState([]);
-  const [loading, setLoading] = useState(true);
+const Autorizacao = () => {
+    const [pendentes, setPendentes] = useState([]);
+    // CORREÇÃO: Justificativas agora são um objeto onde a chave é o ID da tramitação
+    const [justificativas, setJustificativas] = useState({});
+    const [loading, setLoading] = useState(true);
 
-  const carregarSolicitacoes = async () => {
-    try {
-      setLoading(true);
-      const dados = await buscarDados('/api/solicitacoes');
-      
-      // Filtramos apenas as solicitações com status PENDENTE
-      const pendentes = dados.filter((s: any) => s.status === 'PENDENTE');
-      
-      // CORREÇÃO AQUI: Agora o nome bate com o useState acima
-      setSolicitacoes(pendentes); 
-    } catch (error) {
-      console.error("Erro ao buscar solicitações:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    useEffect(() => {
+        carregarPendentes();
+    }, []);
 
-  useEffect(() => {
-    carregarSolicitacoes();
-  }, []);
+    const carregarPendentes = async () => {
+        try {
+            setLoading(true);
+            const data = await buscarDados('/api/tramitacao/pendentes');
+            setPendentes(data || []);
+        } catch (error) {
+            console.error("Erro ao carregar autorizações", error);
+            // Se cair aqui e te jogar para o login, verifique o status 401 no console.log
+            Alert.alert("Erro", "Não foi possível carregar as autorizações.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const processarAutorizacao = async (id: number, novoStatus: 'APROVADA' | 'NEGADA') => {
-    try {
-      // Chama o endpoint PATCH do seu Java
-      await enviarDados(`/api/solicitacoes/${id}/status`, 'PATCH', { status: novoStatus });
-      
-      Alert.alert('Sucesso', `Solicitação ${novoStatus.toLowerCase()} com sucesso!`);
-      carregarSolicitacoes(); // Recarrega a lista para remover o item processado
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível processar a autorização.');
-    }
-  };
+    const handleUpdateJustificativa = (id, text) => {
+        setJustificativas(prev => ({ ...prev, [id]: text }));
+    };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0061F2" />
-      </View>
-    );
-  }
+    const handleDecisao = async (idTramitacao, parecer) => {
+        const justificativaAtual = justificativas[idTramitacao] || '';
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Autorizações</Text>
-          <Text style={styles.subtitle}>Gerencie os pedidos de veículos pendentes.</Text>
-        </View>
+        if (parecer === 'REJEITADO' && !justificativaAtual.trim()) {
+            Alert.alert("Aviso", "A justificativa é obrigatória para rejeição.");
+            return;
+        }
 
-        {solicitacoes.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardContent}>Nenhuma solicitação aguardando autorização.</Text>
-          </View>
-        ) : (
-          solicitacoes.map((item: any) => (
-            <View key={item.id} style={styles.maintenanceItem}>
-              <View style={styles.maintenanceInfo}>
-                <Text style={styles.vehicleName}>{item.destino}</Text>
-                <Text style={styles.dateText}>Solicitante: {item.servidor?.pessoa?.nome}</Text>
-                <Text style={styles.dateText}>Data: {item.dataInicio}</Text>
-              </View>
+        try {
+            await enviarDados(`/api/tramitacao/${idTramitacao}/decisao`, 'PUT', {
+                parecer,
+                justificativa: justificativaAtual
+            });
+            
+            // Limpa a justificativa específica
+            const novasJustificativas = { ...justificativas };
+            delete novasJustificativas[idTramitacao];
+            setJustificativas(novasJustificativas);
 
-              <View style={styles.actions}>
-                <TouchableOpacity 
-                  style={[styles.btnAction, { backgroundColor: '#28a745' }]} 
-                  onPress={() => processarAutorizacao(item.id, 'APROVADA')}
-                >
-                  <Text style={styles.btnText}>✓</Text>
-                </TouchableOpacity>
+            Alert.alert("Sucesso", `Solicitação processada com sucesso.`);
+            carregarPendentes();
+        } catch (error) {
+            Alert.alert("Erro", "Erro ao processar decisão.");
+        }
+    };
 
-                <TouchableOpacity 
-                  style={[styles.btnAction, { backgroundColor: '#dc3545', marginLeft: 10 }]} 
-                  onPress={() => processarAutorizacao(item.id, 'NEGADA')}
-                >
-                  <Text style={styles.btnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
+    if (loading) {
+        return (
+            <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color="#38a169" />
+                <Text style={{marginTop: 10}}>Carregando autorizações...</Text>
             </View>
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+        );
+    }
+
+    return (
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+        >
+            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
+                <View style={styles.pageHeader}>
+                    <Text style={styles.title}>✅ Autorizações Pendentes</Text>
+                    <Text style={styles.subtitle}>Analise e aprove as solicitações pendentes</Text>
+                </View>
+
+                {pendentes.length === 0 ? (
+                    <View style={styles.emptyStateCard}>
+                        <View style={styles.emptyIconWrapper}>
+                            <MaterialCommunityIcons name="check-bold" size={40} color="white" />
+                        </View>
+                        <Text style={styles.emptyTitle}>Nenhuma solicitação pendente</Text>
+                        <Text style={styles.emptySubtitle}>Todas as solicitações foram processadas</Text>
+                    </View>
+                ) : (
+                    pendentes.map(tram => (
+                        <View key={tram.id} style={styles.autorizacaoCard}>
+                            <View style={styles.cardInfoGrid}>
+                                <Text style={styles.infoText}>
+                                    <Text style={styles.bold}>Solicitante:</Text> {tram.solicitacao?.servidor?.pessoa?.nome || 'N/A'}
+                                </Text>
+                                <Text style={styles.infoText}>
+                                    <Text style={styles.bold}>Rota:</Text> {tram.solicitacao?.origem} → {tram.solicitacao?.destino}
+                                </Text>
+                                <Text style={styles.infoText}>
+                                    <Text style={styles.bold}>Data:</Text> {tram.solicitacao?.dataInicio} a {tram.solicitacao?.dataFim}
+                                </Text>
+                                <Text style={styles.infoText}>
+                                    <Text style={styles.bold}>Motivo:</Text> {tram.solicitacao?.justificativa}
+                                </Text>
+                            </View>
+
+                            <View style={styles.justificativaSection}>
+                                <Text style={styles.label}>Justificativa (obrigatória para rejeição)</Text>
+                                <TextInput
+                                    style={styles.textArea}
+                                    placeholder="Motivo da decisão..."
+                                    value={justificativas[tram.id] || ''}
+                                    onChangeText={(text) => handleUpdateJustificativa(tram.id, text)}
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                            </View>
+
+                            <View style={styles.cardActions}>
+                                <TouchableOpacity 
+                                    style={[styles.btn, styles.btnAprovar]} 
+                                    onPress={() => handleDecisao(tram.id, 'AUTORIZADO')}
+                                >
+                                    <MaterialCommunityIcons name="check" size={20} color="white" />
+                                    <Text style={styles.btnText}>Aprovar</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={[styles.btn, styles.btnRejeitar]} 
+                                    onPress={() => handleDecisao(tram.id, 'REJEITADO')}
+                                >
+                                    <MaterialCommunityIcons name="close" size={20} color="white" />
+                                    <Text style={styles.btnText}>Rejeitar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ))
+                )}
+            </ScrollView>
+        </KeyboardAvoidingView>
+    );
+};
+
+// ... Mantenha seus estilos (StyleSheet) originais abaixo
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#212529',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6c757d',
-    marginTop: 5,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    marginBottom: 20,
-  },
-  cardContent: {
-    fontSize: 16,
-    color: '#495057',
-    textAlign: 'center',
-  },
-  maintenanceItem: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  maintenanceInfo: {
-    flex: 1,
-  },
-  vehicleName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#777',
-    marginTop: 4,
-  },
-  actions: {
-    flexDirection: 'row',
-  },
-  btnAction: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-  }
+    container: {
+        flex: 1,
+        backgroundColor: '#f8fafc',
+        padding: 20,
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    pageHeader: {
+        marginBottom: 25,
+    },
+    title: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 5,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: '#666',
+    },
+    autorizacaoCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+        elevation: 3, // Sombra para Android
+        shadowColor: '#000', // Sombra para iOS
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    cardInfoGrid: {
+        marginBottom: 15,
+    },
+    infoText: {
+        fontSize: 14,
+        color: '#2d3748',
+        marginBottom: 6,
+        lineHeight: 20,
+    },
+    bold: {
+        fontWeight: 'bold',
+    },
+    justificativaSection: {
+        marginTop: 10,
+    },
+    label: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#4a5568',
+        marginBottom: 5,
+    },
+    textArea: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#cbd5e0',
+        borderRadius: 8,
+        padding: 10,
+        height: 70,
+        textAlignVertical: 'top', // Necessário para Android em multiline
+    },
+    cardActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
+        gap: 10,
+    },
+    btn: {
+        flex: 1,
+        flexDirection: 'row',
+        height: 45,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    btnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
+    btnAprovar: {
+        backgroundColor: '#38a169',
+    },
+    btnRejeitar: {
+        backgroundColor: '#e53e3e',
+    },
+    emptyStateCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        paddingVertical: 50,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#eef2f6',
+        elevation: 2,
+    },
+    emptyIconWrapper: {
+        backgroundColor: '#81c784',
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 15,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#444',
+        marginBottom: 5,
+    },
+    emptySubtitle: {
+        fontSize: 14,
+        color: '#888',
+        textAlign: 'center',
+    },
 });
+
+export default Autorizacao;

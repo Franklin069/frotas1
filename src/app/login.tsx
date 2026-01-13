@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -8,24 +8,37 @@ import {
   Image, 
   Alert, 
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  Keyboard, // Importado para monitorar o teclado
   ScrollView 
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons'; // Ícones nativos do Expo
+import { StatusBar } from 'expo-status-bar';
 import { enviarDados } from '../services/server';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'entrar' | 'solicitar'>('entrar');
   const [carregando, setCarregando] = useState(false);
+  const [tecladoVisivel, setTecladoVisivel] = useState(false); // Estado para o teclado
   
   const [formData, setFormData] = useState({
     email: '',
     senha: '',
-    nome: '',
-    matricula: ''
   });
+
+  // Monitora se o teclado está aberto ou fechado
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setTecladoVisivel(true));
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setTecladoVisivel(false));
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!formData.email || !formData.senha) {
@@ -53,96 +66,107 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSolicitar = () => {
-    Alert.alert("Sucesso", "Solicitação enviada! Aguarde aprovação.");
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.card}>
-        <Image source={require('../assets/images/Logo.oficial.png')} style={styles.logo} />
-        <Text style={styles.title}>Guarnicê Frotas</Text>
-        
-        {/* TAB CONTAINER */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'entrar' && styles.activeTab]}
-            onPress={() => setActiveTab('entrar')}
-          >
-            <Text style={[styles.tabText, activeTab === 'entrar' && styles.activeTabText]}>Entrar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'solicitar' && styles.activeTab]}
-            onPress={() => setActiveTab('solicitar')}
-          >
-            <Text style={[styles.tabText, activeTab === 'solicitar' && styles.activeTabText]}>Solicitar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* FORMULÁRIO */}
-        <View style={styles.form}>
-          {activeTab === 'solicitar' && (
-            <TextInput
-              style={styles.input}
-              placeholder="Nome Completo"
-              onChangeText={(txt) => setFormData({...formData, nome: txt})}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.innerContainer}>
+            <Image 
+              source={require('../assets/images/Logo.oficial.png')} 
+              style={styles.logo} 
             />
-          )}
+            
+            <Text style={styles.title}>Guarnicê Frotas</Text>
+            <Text style={styles.subtitle}>Acesso ao Painel Administrativo</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onChangeText={(txt) => setFormData({...formData, email: txt})}
-          />
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="E-mail"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholderTextColor="#94a3b8"
+                  onChangeText={(txt) => setFormData({...formData, email: txt})}
+                />
+              </View>
 
-          {activeTab === 'solicitar' && (
-            <TextInput
-              style={styles.input}
-              placeholder="Matrícula"
-              onChangeText={(txt) => setFormData({...formData, matricula: txt})}
-            />
-          )}
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Senha"
+                  secureTextEntry
+                  placeholderTextColor="#94a3b8"
+                  onChangeText={(txt) => setFormData({...formData, senha: txt})}
+                />
+              </View>
 
-          {activeTab === 'entrar' && (
-            <TextInput
-              style={styles.input}
-              placeholder="Senha"
-              secureTextEntry
-              onChangeText={(txt) => setFormData({...formData, senha: txt})}
-            />
-          )}
+              <TouchableOpacity 
+                style={styles.button} 
+                onPress={handleLogin}
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.buttonText}>Acessar Sistema</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
 
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={activeTab === 'entrar' ? handleLogin : handleSolicitar}
-            disabled={carregando}
-          >
-            {carregando ? <ActivityIndicator color="#FFF" /> : (
-              <Text style={styles.buttonText}>
-                {activeTab === 'entrar' ? 'Acessar Sistema' : 'Enviar Solicitação'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+        {/* O RODAPÉ SÓ APARECE SE O TECLADO ESTIVER FECHADO */}
+        {!tecladoVisivel && (
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>© 2026 Guarnicê Frotas - SEDUC</Text>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f0f2f5', justifyContent: 'center', padding: 20 },
-  card: { backgroundColor: '#FFF', borderRadius: 15, padding: 20, elevation: 5 },
-  logo: { width: 100, height: 100, alignSelf: 'center', marginBottom: 10, resizeMode: 'contain' },
-  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', color: '#333', marginBottom: 20 },
-  tabContainer: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#eee', borderRadius: 10, padding: 5 },
-  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  activeTab: { backgroundColor: '#0061F2' },
-  tabText: { color: '#666', fontWeight: 'bold' },
-  activeTabText: { color: '#FFF' },
-  form: { marginTop: 10 },
-  input: { height: 50, backgroundColor: '#f9f9f9', borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
-  button: { height: 50, backgroundColor: '#0061F2', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+  safeArea: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1 },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center' },
+  innerContainer: { paddingHorizontal: 30, paddingBottom: 20 },
+  logo: { width: 140, height: 140, alignSelf: 'center', marginBottom: 20, resizeMode: 'contain' },
+  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', color: '#0f172a' },
+  subtitle: { fontSize: 16, textAlign: 'center', color: '#64748b', marginBottom: 40 },
+  form: { width: '100%' },
+  inputContainer: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 12, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: '#e2e8f0',
+    elevation: 2 
+  },
+  input: { height: 55, paddingHorizontal: 20, fontSize: 16, color: '#1e293b' },
+  button: { 
+    height: 55, 
+    backgroundColor: '#0061F2', 
+    borderRadius: 12, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginTop: 10 
+  },
+  buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  footer: { 
+    paddingVertical: 20, 
+    alignItems: 'center', 
+    backgroundColor: '#f8fafc' 
+  },
+  footerText: { fontSize: 12, color: '#94a3b8' }
 });

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// CORREÇÃO 1: Subindo os níveis corretos para achar a pasta components
 import SolicitacaoModal from '../../components/SolicitacaoModal'; 
 import { 
   StyleSheet, View, Text, FlatList, TouchableOpacity, 
@@ -13,7 +12,11 @@ export default function SolicitacoesScreen() {
 
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // ESTADOS PARA O MODAL
   const [modalVisivel, setModalVisivel] = useState(false); 
+  const [modoModal, setModoModal] = useState<'new' | 'edit' | 'view'>('new');
+  const [solicitacaoSelecionada, setSolicitacaoSelecionada] = useState<any>(null);
   
   const [filtroSolicitante, setFiltroSolicitante] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
@@ -34,6 +37,25 @@ export default function SolicitacoesScreen() {
     getSolicitacoes();
   }, []);
 
+  // FUNÇÕES PARA ABRIR MODAL
+  const abrirNovo = () => {
+    setModoModal('new');
+    setSolicitacaoSelecionada(null);
+    setModalVisivel(true);
+  };
+
+  const abrirEditar = (item: any) => {
+    setModoModal('edit');
+    setSolicitacaoSelecionada(item);
+    setModalVisivel(true);
+  };
+
+  const abrirVisualizar = (item: any) => {
+    setModoModal('view');
+    setSolicitacaoSelecionada(item);
+    setModalVisivel(true);
+  };
+
   const handleEnviarParaAutorizacao = (sol: any) => {
     Alert.alert(
       "Confirmar Envio",
@@ -45,10 +67,10 @@ export default function SolicitacoesScreen() {
           onPress: async () => {
             try {
               await enviarDados(`${API_ENDPOINT}/${sol.id}/enviar-transporte`, 'POST');
-              Alert.alert("Sucesso", "Solicitação enviada para o Setor de Transporte!");
+              Alert.alert("Sucesso", "Solicitação enviada!");
               getSolicitacoes();
             } catch (error) {
-              Alert.alert("Erro", "Falha ao enviar para o transporte.");
+              Alert.alert("Erro", "Falha ao enviar.");
             }
           } 
         }
@@ -71,13 +93,6 @@ export default function SolicitacoesScreen() {
     );
   };
 
-  const solicitacoesFiltradas = solicitacoes.filter(sol => {
-    const nome = sol.servidor?.pessoa?.nome?.toLowerCase() || "";
-    const nomeMatch = nome.includes(filtroSolicitante.toLowerCase());
-    const statusMatch = filtroStatus === 'Todos' || sol.status === filtroStatus;
-    return nomeMatch && statusMatch;
-  });
-
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -88,17 +103,17 @@ export default function SolicitacoesScreen() {
       <View style={styles.cardBody}>
         <Text style={styles.infoText}><Text style={styles.bold}>Origem:</Text> {item.origem}</Text>
         <Text style={styles.infoText}><Text style={styles.bold}>Destino:</Text> {item.destino}</Text>
-        <Text style={styles.infoText}><Text style={styles.bold}>Data:</Text> {item.dataCriacao}</Text>
+        <Text style={styles.infoText}><Text style={styles.bold}>Data:</Text> {item.dataInicio}</Text>
       </View>
 
       <View style={styles.acoesContainer}>
-        <TouchableOpacity style={styles.btnAcao} onPress={() => Alert.alert("Visualizar", "Detalhes...")}>
+        <TouchableOpacity style={styles.btnAcao} onPress={() => abrirVisualizar(item)}>
           <FontAwesome5 name="eye" size={18} color="#007bff" />
         </TouchableOpacity>
 
         {item.status === 'CRIADA' && (
           <>
-            <TouchableOpacity style={styles.btnAcao}>
+            <TouchableOpacity style={styles.btnAcao} onPress={() => abrirEditar(item)}>
               <FontAwesome5 name="edit" size={18} color="#ffc107" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnAcao} onPress={() => handleEnviarParaAutorizacao(item)}>
@@ -114,10 +129,7 @@ export default function SolicitacoesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Solicitações</Text>
-        <TouchableOpacity 
-          style={styles.btnNovo} 
-          onPress={() => setModalVisivel(true)} 
-        >
+        <TouchableOpacity style={styles.btnNovo} onPress={abrirNovo}>
           <FontAwesome5 name="plus" size={16} color="#FFF" />
           <Text style={styles.btnNovoText}> Nova</Text>
         </TouchableOpacity>
@@ -136,24 +148,24 @@ export default function SolicitacoesScreen() {
         <ActivityIndicator size="large" color="#10b981" style={{ marginTop: 20 }} />
       ) : (
         <FlatList
-          data={solicitacoesFiltradas}
+          data={solicitacoes.filter(sol => sol.servidor?.pessoa?.nome?.toLowerCase().includes(filtroSolicitante.toLowerCase()))}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma solicitação encontrada.</Text>}
-          contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
 
-      {/* CORREÇÃO 2: Removidas as chaves extras {{ }} que impediam o funcionamento */}
-      {modalVisivel && (
-        <SolicitacaoModal 
-          onClose={() => setModalVisivel(false)} 
-          onSuccess={() => {
-            setModalVisivel(false);
-            getSolicitacoes(); 
-          }} 
-        />
-      )}
+      {/* CORREÇÃO DOS ERROS DE PROPS DO TYPESCRIPT */}
+      <SolicitacaoModal 
+        visible={modalVisivel}
+        mode={modoModal}
+        solicitacaoToEdit={solicitacaoSelecionada}
+        onClose={() => setModalVisivel(false)} 
+        onSolicitacaoSaved={(msg) => {
+          setModalVisivel(false);
+          getSolicitacoes();
+        }} 
+      />
     </View>
   );
 }
@@ -164,7 +176,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
   btnNovo: { backgroundColor: '#10b981', flexDirection: 'row', padding: 10, borderRadius: 8, alignItems: 'center' },
   btnNovoText: { color: '#FFF', fontWeight: 'bold' },
-  searchArea: { backgroundColor: '#FFF', padding: 10, borderRadius: 10, marginBottom: 15, elevation: 2 },
+  searchArea: { backgroundColor: '#FFF', padding: 10, borderRadius: 10, marginBottom: 15 },
   input: { height: 40, borderColor: '#ddd', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10 },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 15, marginBottom: 12, elevation: 3 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
